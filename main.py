@@ -1,5 +1,6 @@
 import cv2
 from ultralytics import YOLO
+from deepface import DeepFace
 
 # load model
 model = YOLO('yolov8n.pt')
@@ -28,7 +29,25 @@ while True:  # You want continuous detection
                 center_x = (x1 + x2) / 2
                 center_y = (y1 + y2) / 2
 
-                print(f"Center of normalized bounding box {i}: ({center_x}, {center_y})")
+                # Crop the face from the frame
+                face = frame[int(y1):int(y2), int(x1):int(x2)]
+
+                # Perform face recognition using DeepFace
+                # We pass the frame to DeepFace when Yolo detects a person in the frame
+                # DeepFace verify function then compares the face in the frame, to a face in a known saved image,
+                # and returns a result of whether the face in the frame is the same as the face in the known image
+
+                # DeepFace uses the VGG-Face model at this moment
+
+                # detected_face = DeepFace.extract_faces(img_path=face, detector_backend='opencv', enforce_detection=False)
+                # (face, detector_backend='opencv', enforce_detection=False)
+                
+                # Verify if person in frame is Bryan
+                result = DeepFace.verify(frame, 'deepface_data/images/bryan/bryan1.jpg', model_name='VGG-Face', detector_backend='opencv', enforce_detection=False)
+                
+                # If the result is verified, print the location of the person in the frame
+                if result['verified']:
+                    print(f"Bryan detected at ({center_x}, {center_y})")
 
     # Display the frame
     # Visualize the results on the frame
