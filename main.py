@@ -23,6 +23,39 @@ face_images = []
 # Initialize last verification time to current time
 last_verification_time = time.time()
 verified = False
+
+# CameraPTZ class in order to keep track of the camera's position and facilitate movement
+class CameraPTZ:
+    def __init__(self, camera):
+        self.camera = camera
+        self.pan = 0
+        self.tilt = 0
+        self.zoom = 0
+
+    def move(self, pan, tilt, zoom):
+        self.pan += pan
+        self.tilt += tilt
+        self.zoom += zoom
+
+        # Limit pan to [-180, 180]
+        if self.pan > 180:
+            self.pan = 180
+        elif self.pan < -180:
+            self.pan = -180
+
+        # Limit tilt to [-90, 90]
+        if self.tilt > 90:
+            self.tilt = 90
+        elif self.tilt < -90:
+            self.tilt = -90
+
+        # Limit zoom to [0, 100]
+        if self.zoom > 100:
+            self.zoom = 100
+        elif self.zoom < 0:
+            self.zoom = 0
+
+
 while True:  # You want continuous detection
     # Read the current frame
     ret, frame = cap.read()
@@ -31,6 +64,9 @@ while True:  # You want continuous detection
 
     # Apply the model to the frame
     results = model(frame)
+
+    # Create a CameraPTZ object
+    camera = CameraPTZ(0)
 
     # Process the results
     for result in results:
@@ -71,6 +107,14 @@ while True:  # You want continuous detection
                             print(f"Person detected at ({center_x}, {center_y})")
                             verified = True
                             last_verification_time = time.time()
+
+                            # If the person is close to 5% near the edge of the frame, move the camera (left and right only for now)
+                            if center_x < 0.05 * frame.shape[1]:
+                                print("Move camera left")
+                                camera.move(-10, 0, 0)
+                            elif center_x > 0.95 * frame.shape[1]:
+                                print("Move camera right")
+                                camera.move(10, 0, 0)
                             break
                         else:
                             print("Person not detected")
