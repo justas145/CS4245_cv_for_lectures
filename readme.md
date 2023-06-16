@@ -31,3 +31,6 @@ Arguments
 
 ### Results_analysis.ipynb
 This notebook contains the results of the experiments conducted on the dataset. It also contains the code for the plots and tables in the report.
+
+### Blog Post
+See the blog post here: https://medium.com/@justasand1/project-title-bf3dff25a791
