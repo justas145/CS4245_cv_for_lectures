@@ -12,7 +12,7 @@ start_time = time.time()
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Perform action recognition')
-parser.add_argument('-model', help='yolo model to use', default='yolov8n')
+# parser.add_argument('-model', help='yolo model to use', default='yolov8n')
 parser.add_argument(
     '-method', help='method to use for feature extraction', default='osnet')
 parser.add_argument('-detection_confidence', type=float,
@@ -21,8 +21,8 @@ parser.add_argument('-num_saved_images', type=int,
                     help='number of saved images for the target person', default=30)
 parser.add_argument('-verification_time', type=float,
                     help='time interval between verifications', default=3)
-parser.add_argument('-similarity_method',
-                    help='method to use for calculating similarity scores', default='cosine')
+# parser.add_argument('-similarity_method',
+#                     help='method to use for calculating similarity scores', default='cosine')
 parser.add_argument('-threshold_coefficient', type=float,
                     help='coefficient for similarity threshold', default=0.9)
 parser.add_argument(
@@ -36,14 +36,15 @@ test_video = args.input_video.split('/')[-1].split('.')[0]
 
 if args.save_frames:
     print('saving frames to saved_frames')
-    directory = f'saved_frames/{test_video}'
+    directory = f'saved_frames/{test_video}/d{args.detection_confidence}_num{args.num_saved_images}_t{args.verification_time}_thr{args.threshold_coefficient}'
 
     # Check if the directory exists, if not, create it.
     if not os.path.exists(directory):
         os.makedirs(directory)
 
 # Load model
-model = YOLO(args.model)
+model = YOLO('yolov8n.pt')
+# model = YOLO('yolov8n-seg.pt')
 
 # Initialize the feature extraction method
 if args.method == 'osnet':
@@ -85,11 +86,11 @@ while True:  # You want continuous detection
     ret, frame = cap.read()
     if not ret:
         break
-
+    
     # Apply the model to the frame
-    results = model(frame)
-
     if len(embeddings_lst) < args.num_saved_images or time.time() - last_verification_time >= args.verification_time:
+        last_verification_time = time.time()
+        results = model(frame)
         # Process the results
         for result in results:
             boxes = result.boxes
@@ -121,7 +122,7 @@ while True:  # You want continuous detection
                                 embeddings_lst.append(embedding)
 
                     # if embeddings are ready, start verification
-                    if len(embeddings_lst) >= args.num_saved_images and time.time() - last_verification_time >= args.verification_time:
+                    if len(embeddings_lst) >= args.num_saved_images:
                         print(
                             f"{args.num_saved_images} images collected, performing identification...")
                         verification_done = True
@@ -152,7 +153,7 @@ while True:  # You want continuous detection
                             if args.save_frames:
                                 print('saving frames to saved_frames' )
                                 cv2.imwrite(
-                                    f'saved_frames/{test_video}/person_{d}_{average_similarity:.2f}_YES.jpg', person0)
+                                    f'saved_frames/{test_video}/d{args.detection_confidence}_num{args.num_saved_images}_t{args.verification_time}_thr{args.threshold_coefficient}/person_{d}_{average_similarity:.2f}_YES.jpg', person0)
                             d += 1
                             break
                         else:
@@ -161,8 +162,9 @@ while True:  # You want continuous detection
                             match_found = False
                             if args.save_frames:
                                 print('saving frames to saved_frames' )
+                                # save in test_video folder with hyperparameter specificatiion
                                 cv2.imwrite(
-                                    f'saved_frames/{test_video}/person_{d}_{average_similarity:.2f}_NO.jpg', person0)
+                                    f'saved_frames/{test_video}/d{args.detection_confidence}_num{args.num_saved_images}_t{args.verification_time}_thr{args.threshold_coefficient}/person_{d}_{average_similarity:.2f}_NO.jpg', person0)
                             d += 1
                         
                     if match_found:
@@ -197,6 +199,7 @@ cv2.destroyAllWindows()
 end_time = time.time()
 FPS = total_frames / (end_time - start_time)
 print(f'Time taken to process the video: {end_time - start_time} seconds.')
+print(f'Total frames: {total_frames}.')
 print(f'FPS: {FPS}.')
 
 # arguments:
