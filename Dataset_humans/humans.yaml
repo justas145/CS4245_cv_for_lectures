@@ -1,0 +1,6 @@
+path: Dataset_humans
+train: train/Person/
+val: val/Person/
+
+nc: 1
+names: ['Person']

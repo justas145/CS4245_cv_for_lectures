@@ -11,14 +11,13 @@ face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_fronta
 model = YOLO('yolov8n.pt')
 
 # Start capturing the video file
-cap = cv2.VideoCapture('test_videos/test_video_lecturer_and_people.mp4')
+cap = cv2.VideoCapture('test_videos/test_video_home.mp4')
 
 # Define the codec using VideoWriter_fourcc and create a VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-out = cv2.VideoWriter('output_videos/output_lecturer_and_people.mp4', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
+out = cv2.VideoWriter('output_videos/output_home.mp4', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
 
 # List to store face images and embeddings
-face_images = []
 face_embeddings = []
 
 # Initialize last verification time to current time
@@ -27,8 +26,10 @@ last_verification_time = time.time()
 # Initialize verification flag and target person's center coordinates
 verified = False
 center_x, center_y = 0, 0
-
+min_distance = 50
 while True:  # You want continuous detection
+    # Initialize match flag
+    match_found = False    
     # Read the current frame
     ret, frame = cap.read()
     if not ret:
@@ -41,16 +42,19 @@ while True:  # You want continuous detection
     for result in results:
         boxes = result.boxes
         for i in range(len(boxes)):
-            if boxes.cls[i].item() == 0:  # 'person'
+            # single box
+            box = boxes[i]
+            if box.cls[0].item() == 0 and round(box.conf[0].item(), 2) >=0.75:  # 'person' with confidence >= 0.75
                 # Get normalized bounding box coordinates
-                x1_n, y1_n, x2_n, y2_n = boxes.xyxyn[i]
+                x1_n, y1_n, x2_n, y2_n = box.xyxyn[0]
+                x1, y1, x2, y2 = box.xyxy[0]
 
                 # Calculate the absolute center of the bounding box
-                center_x = int((x1_n + x2_n) / 2 * frame.shape[1])
-                center_y = int((y1_n + y2_n) / 2 * frame.shape[0])
+                center_x = int((x1 + x2) / 2 )
+                center_y = int((y1 + y2) / 2 )
 
                 # Crop the person from the frame
-                person0 = frame[int(y1_n*frame.shape[0]):int(y2_n*frame.shape[0]), int(x1_n*frame.shape[1]):int(x2_n*frame.shape[1])]
+                person0 = frame[int(y1):int(y2), int(x1):int(x2)]
 
                 # Face detection on the cropped person
                 faces = face_cascade.detectMultiScale(person0, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
@@ -59,29 +63,38 @@ while True:  # You want continuous detection
                 for (x, y, w, h) in faces:
                     # Crop the face from the person
                     face0 = person0[y:y+h, x:x+w]
-                    # Generate a unique filename
-                    filename = f"faces/face_{time.time()}.jpg"
-                    # Save the image
-                    cv2.imwrite(filename, face0)
-
                     # If there are less than 10 images, save the current image and its embedding in list
-                    if len(face_images) < 10:
-                        face_images.append(face0)
-                        face_embeddings.append(DeepFace.represent(face0, model_name='VGG-Face', detector_backend='opencv'))
-                        continue
+                    if len(face_embeddings) < 10:
+                        try:
+                            face_embeddings.append(DeepFace.represent(face0, model_name='VGG-Face', detector_backend='opencv'))
+                            print("Face detected, collecting images...")
+                        except ValueError:
+                            continue
+
 
                 # If 10 images are collected and at least 5 seconds have passed since the last verification, perform face recognition
-                if len(face_images) >= 10 and time.time() - last_verification_time >= 5:
+                if len(face_embeddings) >= 10 and time.time() - last_verification_time >= 5:
                     print("10 images collected, performing face recognition...")
-                    embedding = DeepFace.represent(face0, model_name='VGG-Face', detector_backend='opencv')
-                    distances = [np.linalg.norm(embedding - face_embedding) for face_embedding in face_embeddings]
-                    if any(distance < 0.5 for distance in distances):  # Threshold of 0.5, you might need to adjust it
+                    embedding = DeepFace.represent(face0, model_name='VGG-Face', detector_backend='opencv', enforce_detection=False)
+                    distances = [np.linalg.norm(np.array(embedding[0]['embedding']) - np.array(face_embedding[0]['embedding'])) for face_embedding in face_embeddings]
+                    average_distance = sum(distances) / len(distances)
+                    print("AVG Distances: ", average_distance)
+                    if average_distance <= min_distance:  # Threshold of 0.5, you might need to adjust it
                         print(f"Person detected at ({center_x}, {center_y})")
                         verified = True
+                        match_found = True
+                        last_verification_time = time.time()
+                        min_distance = average_distance + 0.2
+                        if min_distance < 0.2:
+                            min_distance = 0.3
+                            
+                        break
                     else:
                         print("Person not detected")
                         verified = False
-                    last_verification_time = time.time()
+                if match_found:
+                    break
+                    
 
     # Visualize the results on the frame
     annotated_frame = results[0].plot()
@@ -102,3 +115,12 @@ while True:  # You want continuous detection
 cap.release()
 out.release()
 cv2.destroyAllWindows()
+
+
+
+
+
+
+
+
+
