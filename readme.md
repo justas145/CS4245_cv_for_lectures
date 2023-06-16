@@ -28,3 +28,6 @@ Arguments
 -threshold_coefficient: coefficient for similarity threshold (default: 0.9)
 -save_frames: save frames with the title of similarity score and yes/no for verification (default: False)
 -input_video: input video file
+
+### Results_analysis.ipynb
+This notebook contains the results of the experiments conducted on the dataset. It also contains the code for the plots and tables in the report.
